@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iGate Straight Flume</title>
+<style>
+  :root{--bg:#eef2f6;--panel:#ffffffee;--ink:#1d2733;--muted:#5d6b7a;--line:#d6dee6;--accent:#1f6fd1;--red:#d62828;--green:#1f9d47;--water:#4f8fe0}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.4 "Segoe UI",Tahoma,"Noto Sans Thai",system-ui,sans-serif;overflow:hidden}
+  #app{position:fixed;inset:0}
+  #panel{position:fixed;top:12px;left:12px;width:320px;max-height:calc(100% - 24px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:0 6px 24px #0002;backdrop-filter:blur(6px)}
+  #panel.collapsed .body{display:none}
+  h1{font-size:16px;margin:0}
+  .sub{color:var(--muted);font-size:11.5px;margin-bottom:6px}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  #panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:12px 0 6px;border-top:1px solid var(--line);padding-top:10px}
+  .ctl{margin:6px 0} .ctl .row{display:flex;justify-content:space-between}
+  .ctl output{font-variant-numeric:tabular-nums;color:var(--muted)}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .g input[type=range]{accent-color:var(--red)} .g.q input[type=range]{accent-color:#7c3aed} .f input[type=range]{accent-color:var(--green)}
+  button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 9px;cursor:pointer;color:var(--ink)}
+  button:hover{border-color:var(--accent)} button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.primary{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+  .btns{display:flex;flex-wrap:wrap;gap:6px}
+  .gblk{border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin:7px 0;background:#fff}
+  .gblk .top{display:flex;align-items:center;gap:6px}
+  .gblk .top b{flex:1}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .seg button{border:0;border-radius:0;padding:2px 8px;font-size:12px}
+  .gblk .meta{display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  td,th{padding:3px 4px;border-bottom:1px dashed var(--line);text-align:right} td:first-child,th:first-child{text-align:left}
+  #readout td{padding:2px 0}
+  .warn{color:var(--red);font-weight:600;min-height:1em;white-space:pre-line}
+  .lbl{font:600 11px "Segoe UI",Tahoma,sans-serif;padding:2px 6px;border-radius:4px;color:#fff;background:#2b3a55d9;white-space:nowrap;pointer-events:none}
+  .lbl.gate{background:#3949abe6;pointer-events:auto;cursor:pointer}.lbl.gate:hover{background:#d62828}
+  .lbl.fto{background:#1f9d47e6}.lbl.weir{background:#b71c1ce6}
+  /* ---------- detail modal (สไตล์ iGate: ตั้งค่า Gate Open + Report) ---------- */
+  #modal{position:fixed;inset:0;background:#0f172a66;display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+  #modal[hidden]{display:none}
+  .card{background:#fff;border-radius:12px;width:min(920px,100%);max-height:100%;overflow:auto;box-shadow:0 20px 60px #0004;padding:16px 18px}
+  .mhdr{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  .mhdr h2{margin:0;font-size:20px}.kicker{color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+  .mhdr .sp{flex:1}
+  .pill{font-size:11.5px;padding:2px 8px;border-radius:999px;background:#e7f6ec;color:#166534;font-weight:600}
+  .pill.mv{background:#fff4d6;color:#92400e}.pill.q{background:#ede9fe;color:#5b21b6}
+  .mgrid{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin-top:12px}
+  @media (max-width:760px){.mgrid{grid-template-columns:1fr}#panel{width:auto;right:12px;max-height:55%}}
+  #mSvg{width:100%;height:auto;background:#f6f9fc;border:1px solid var(--line);border-radius:8px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  .stat{border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  .stat .k{font-size:11px;color:var(--muted)} .stat .v{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+  .stat .u{font-size:11px;color:var(--muted);font-weight:400}
+  .form{border:1px solid var(--line);border-radius:8px;padding:12px}
+  .form h3{margin:0 0 8px;font-size:15px}
+  .form label{display:block;margin:8px 0 2px;font-weight:600}
+  .form input[type=number]{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px}
+  .form input[readonly]{background:#f3f5f8;color:var(--muted)}
+  .form .chk{font-weight:400;display:flex;gap:6px;align-items:center}
+  .form .btns{margin-top:8px}
+  #fMsg{margin-top:8px;color:var(--muted);font-size:12px;min-height:2.6em}
+  .tabs{display:flex;gap:6px;margin:14px 0 6px;align-items:center}
+  .tabs .sp{flex:1}
+  .tblwrap{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  .tblwrap th{position:sticky;top:0;background:#f3f5f8;font-weight:600}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="panel">
+  <div class="hdr">
+    <div><h1>iGate Model — รางตรง</h1><div class="sub">รางตรง 3.2 m · คลิกที่ประตูเพื่อดูรายละเอียด</div></div>
+    <button id="collapse" title="ย่อ/ขยาย">–</button>
+  </div>
+  <div class="body">
+    <h2>ประตูระบายน้ำ (ปรับระยะบาน หรือ ตั้ง Q)</h2><div id="gates"></div>
+    <h2>FTO (ช่องระบายข้าง)</h2><div id="ftos"></div>
+    <h2>ปั๊มน้ำ (ท่อ 4")</h2>
+    <div class="btns"><button id="pumpBtn" class="on">ปั๊ม: เปิด</button></div>
+    <div id="pumpCtl"></div>
+    <h2>สถานะ</h2>
+    <table id="readout"></table>
+    <div class="warn" id="warn"></div>
+    <h2>มุมมอง / ระบบ</h2>
+    <div id="simCtl"></div>
+    <div class="btns">
+      <button data-view="iso">3D</button><button data-view="top">แปลน</button><button data-view="side">ด้านข้าง</button>
+      <button id="lblBtn" class="on">ป้ายชื่อ</button>
+      <button id="modeBtn">โหมด: Sim</button>
+      <button id="resetBtn">รีเซ็ต</button>
+      <button id="glbBtn">Export .glb</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal" hidden>
+  <div class="card" role="dialog" aria-modal="true">
+    <div class="mhdr">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="4" height="27" fill="#56606b"/><rect x="27" y="4" width="4" height="27" fill="#56606b"/><rect x="3" y="2" width="28" height="4" fill="#2e3a4b"/><rect x="9" y="8" width="16" height="16" fill="#d62828"/><rect x="3" y="27" width="28" height="4" fill="#4f8fe0"/></svg>
+      <div><div class="kicker">iGate · รายละเอียดประตู</div><h2 id="mTitle">iGate1</h2></div>
+      <span class="sp"></span><span id="mPill" class="pill">พร้อม</span>
+      <button id="mPrev" title="ประตูก่อนหน้า">‹</button><button id="mNext" title="ประตูถัดไป">›</button>
+      <button id="mClose" title="ปิด">✕</button>
+    </div>
+    <div class="mgrid">
+      <div>
+        <svg id="mSvg" viewBox="0 0 440 280"></svg>
+        <div class="stats" id="mStats"></div>
+      </div>
+      <div class="form">
+        <h3>ตั้งค่า Gate Open</h3>
+        <label for="fDH">ΔH (m)</label><input id="fDH" type="number" step="0.001" min="0">
+        <div class="chk"><input type="checkbox" id="fDHauto" checked><span>ใช้ระดับน้ำปัจจุบัน (US/DS)</span></div>
+        <label for="fQ">Q (m³/s)</label><input id="fQ" type="number" step="0.0001" min="0">
+        <label for="fA">Gate Open (m)</label><input id="fA" type="number" step="0.001" min="0" max="0.2">
+        <div class="btns"><button id="fCalcA">Q → Gate Open</button><button id="fCalcQ">Gate Open → Q</button></div>
+        <div class="chk" style="margin-top:8px"><input type="checkbox" id="fHold"><span>รักษา Q อัตโนมัติ (Q-Control)</span></div>
+        <div class="btns"><button id="fSubmit" class="primary">Submit</button></div>
+        <div id="fMsg"></div>
+      </div>
+    </div>
+    <div class="tabs">
+      <button data-tab="wl" class="on">iGate Report</button><button data-tab="go">Gate open Report</button>
+      <span class="sp"></span><button id="csvBtn">ดาวน์โหลด CSV</button>
+    </div>
+    <div class="tblwrap"><table id="mTable"></table></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {CSS2DRenderer, CSS2DObject} from 'three/addons/renderers/CSS2DRenderer.js';
+import {GLTFExporter} from 'three/addons/exporters/GLTFExporter.js';
+
+/* =====================================================================
+   CONFIG — หน่วยเมตร (X = ตามความยาวราง, Z = ขวาง, Y = สูง; y ของถัง/ราง วัดจากแท่น)
+   รางตรงยาว 3.2 m (1.2+0.8+1.2 ตามรูปด้านข้าง) ไม่มีเลี้ยว
+   ===================================================================== */
+const CFG = {
+  base: 0.70,
+  upperTank: {x0:0.0, x1:0.6, z0:-0.20, z1:0.20, y0:0.225, h:0.40},
+  lowerTank: {x0:3.8, x1:4.4, z0:-0.40, z1:0.40, y0:0.006, h:0.38},
+  channel: {w:0.12, wallH:0.20, t:0.006, bedStart:0.225, bedEnd:0.10, path:[[0.6,0],[3.8,0]]},
+  gate: {leafH:0.35, maxOpen:0.20, speed:0.025, Cd:0.61},
+  gates:[{id:'iGate1', s:0.03}, {id:'iGate2', s:0.80}, {id:'iGate3', s:2.63}],
+  fto:  {area:0.004},
+  ftos: [{id:'FTO1', s:0.55}, {id:'FTO2', s:2.30}],
+  weir: {crest:0.12, plateH:0.20},
+  pump: {qmax:0.006},
+  qMaxUI: 0.012,                                // ช่วงสไลเดอร์ Q (m3/s)
+  pipe: {supplyR:0.1143/2, drainR:0.0889/2}
+};
+const B=CFG.base, CH=CFG.channel, W=CH.w, T=CH.t, WH=CH.wallH, G=9.81;
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z), UP=V3(0,1,0);
+const CX=2.2;  // จุดกลางโมเดลตามแกน X
+
+/* ---------------- scene ---------------- */
+const app=document.getElementById('app');
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.toneMapping=THREE.ACESFilmicToneMapping;
+app.appendChild(renderer.domElement);
+const labelRenderer=new CSS2DRenderer(); labelRenderer.setSize(innerWidth,innerHeight);
+Object.assign(labelRenderer.domElement.style,{position:'fixed',inset:'0',pointerEvents:'none'});
+app.appendChild(labelRenderer.domElement);
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0xeef2f6);
+const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,0.01,80);
+const controls=new OrbitControls(camera,renderer.domElement); controls.enableDamping=true;
+const VIEWS={iso:{p:[CX+2.6,2.4,3.6],t:[CX,0.85,0]},top:{p:[CX,5.2,0.001],t:[CX,0.8,0]},side:{p:[CX,1.0,-5.0],t:[CX,0.9,0]}};
+function setView(k){const v=VIEWS[k];camera.position.set(...v.p);controls.target.set(...v.t);controls.update();}
+setView('iso');
+scene.add(new THREE.HemisphereLight(0xffffff,0xb9c3cc,1.1));
+const sun=new THREE.DirectionalLight(0xffffff,1.6); sun.position.set(CX+1.5,4,2); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-3.2,right:3.2,top:3.2,bottom:-3.2,near:0.5,far:12}); sun.shadow.bias=-0.0005;
+sun.target.position.set(CX,0.6,0); scene.add(sun,sun.target);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(14,14),new THREE.MeshStandardMaterial({color:0xe4e9ee,roughness:1}));
+ground.rotation.x=-Math.PI/2; ground.position.set(CX,0,0); ground.receiveShadow=true; scene.add(ground);
+const grid=new THREE.GridHelper(14,140,0xc5ced7,0xd7dee5); grid.position.set(CX,0.001,0); scene.add(grid);
+const model=new THREE.Group(); model.name='iGateModel_Straight'; scene.add(model);
+
+/* ---------------- materials ---------------- */
+const M={
+  acrylic:new THREE.MeshPhysicalMaterial({color:0xcfe6ff,transparent:true,opacity:0.16,roughness:0.05,side:THREE.DoubleSide,depthWrite:false}),
+  bed:new THREE.MeshStandardMaterial({color:0xdfe5ea,roughness:0.6}),
+  steel:new THREE.MeshStandardMaterial({color:0x56606b,metalness:0.7,roughness:0.35}),
+  deck:new THREE.MeshStandardMaterial({color:0x8a939c,metalness:0.4,roughness:0.6}),
+  gate:new THREE.MeshStandardMaterial({color:0xd62828,roughness:0.45}),
+  gateHi:new THREE.MeshStandardMaterial({color:0xff5a3c,roughness:0.4,emissive:0x501000}),
+  actuator:new THREE.MeshStandardMaterial({color:0x2e3a4b,roughness:0.5,metalness:0.3}),
+  fto:new THREE.MeshPhysicalMaterial({color:0x2bb24c,transparent:true,opacity:0.35,roughness:0.2,side:THREE.DoubleSide,depthWrite:false}),
+  ftoLeaf:new THREE.MeshStandardMaterial({color:0x1d8a3a}),
+  pipeSupply:new THREE.MeshStandardMaterial({color:0x9aa7b4,roughness:0.5,metalness:0.2}),
+  pipeDrain:new THREE.MeshStandardMaterial({color:0x2bb24c,roughness:0.5}),
+  pumpBody:new THREE.MeshStandardMaterial({color:0xb9c2cb,metalness:0.6,roughness:0.35}),
+  pumpMotor:new THREE.MeshStandardMaterial({color:0x1f6fd1,metalness:0.3,roughness:0.4}),
+  water:new THREE.MeshPhysicalMaterial({color:0x4f8fe0,transparent:true,opacity:0.62,roughness:0.08}),
+  waterFall:new THREE.MeshPhysicalMaterial({color:0x7fb0ee,transparent:true,opacity:0.55,roughness:0.1,side:THREE.DoubleSide,depthWrite:false}),
+  edge:new THREE.LineBasicMaterial({color:0x6f93b5,transparent:true,opacity:0.7}),
+  ftoEdge:new THREE.LineBasicMaterial({color:0x1f9d47})
+};
+
+/* ---------------- helpers ---------------- */
+function group(name,parent=model){const g=new THREE.Group();g.name=name;parent.add(g);return g;}
+function box(name,sx,sy,sz,mat,x,y,z,parent){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat); m.name=name; m.position.set(x,y,z);
+  m.castShadow=!mat.transparent; m.receiveShadow=true;
+  if(mat===M.acrylic||mat===M.fto){const e=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),mat===M.fto?M.ftoEdge:M.edge);e.name=name+'_Edges';m.add(e);}
+  parent.add(m); return m;
+}
+function cylBetween(name,a,b,r,mat,parent,seg=28){
+  const d=new THREE.Vector3().subVectors(b,a),L=d.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,L,seg),mat); m.name=name;
+  m.position.addVectors(a,b).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(UP,d.normalize());
+  m.castShadow=true; m.receiveShadow=true; parent.add(m); return m;
+}
+function pipe(name,pts,r,mat,parent=model){
+  const g=group(name,parent);
+  for(let i=0;i<pts.length-1;i++) if(pts[i].distanceTo(pts[i+1])>1e-5) cylBetween(`${name}_Seg${i+1}`,pts[i],pts[i+1],r,mat,g);
+  for(let i=1;i<pts.length-1;i++){const s=new THREE.Mesh(new THREE.SphereGeometry(r,24,16),mat);s.name=`${name}_Elbow${i}`;s.position.copy(pts[i]);s.castShadow=true;g.add(s);}
+  return g;
+}
+function flange(name,p,axis,r,mat){const a=p.clone().addScaledVector(axis,-0.006),b=p.clone().addScaledVector(axis,0.006);return cylBetween(name,a,b,r*1.4,mat,model);}
+const labels=[];
+function label(text,pos,cls='',onClick){
+  const el=document.createElement('div'); el.className='lbl '+cls; el.textContent=text;
+  if(onClick) el.addEventListener('click',onClick);
+  const o=new CSS2DObject(el); o.position.copy(pos); o.name='Label_'+text; model.add(o); labels.push(o); return o;
+}
+
+/* ---------------- channel path ---------------- */
+const pathPts=CH.path.map(([x,z])=>new THREE.Vector2(x,z));
+const segs=[]; let LTOT=0;
+for(let i=0;i<pathPts.length-1;i++){
+  const a=pathPts[i],b=pathPts[i+1],len=a.distanceTo(b),dir=b.clone().sub(a).normalize();
+  segs.push({i,a,b,len,dir,across:new THREE.Vector2(-dir.y,dir.x),yaw:Math.atan2(-dir.y,dir.x),s0:LTOT,s1:LTOT+len,inner:1});
+  LTOT+=len;
+}
+const SLOPE=(CH.bedStart-CH.bedEnd)/LTOT, PITCH=-Math.atan(SLOPE);
+const bedAt=s=>CH.bedStart+(CH.bedEnd-CH.bedStart)*s/LTOT;
+const segOf=s=>segs.find(sg=>s<=sg.s1)||segs[segs.length-1];
+const segPoint=(sg,s)=>{const d=s-sg.s0;return V3(sg.a.x+sg.dir.x*d,B+bedAt(s),sg.a.y+sg.dir.y*d);};
+function alongGroup(name,sg,sa,sb,parent){
+  const g=new THREE.Group(); g.name=name; g.position.copy(segPoint(sg,(sa+sb)/2));
+  g.rotation.order='YZX'; g.rotation.y=sg.yaw; g.rotation.z=PITCH; parent.add(g);
+  return {g,len:(sb-sa)*Math.hypot(1,SLOPE)};
+}
+
+/* ---------------- frame ---------------- */
+const frame=group('Frame'), DL=4.5, DZ=0.9;
+box('Deck',DL,0.03,DZ,M.deck,CX,B-0.015,0,frame);
+const legX=[CX-DL/2+0.03,CX-DL/6,CX+DL/6,CX+DL/2-0.03], legZ=[-DZ/2+0.03,DZ/2-0.03];
+legX.forEach((x,i)=>legZ.forEach((z,j)=>box(`Leg_${i}${j}`,0.04,B-0.03,0.04,M.steel,x,(B-0.03)/2,z,frame)));
+legZ.forEach((z,j)=>{box(`RailX_Low_${j}`,DL-0.06,0.03,0.03,M.steel,CX,0.15,z,frame);box(`RailX_Top_${j}`,DL-0.06,0.05,0.03,M.steel,CX,B-0.055,z,frame);});
+legX.forEach((x,i)=>box(`RailZ_Low_${i}`,0.03,0.03,DZ-0.1,M.steel,x,0.15,0,frame));
+
+/* ---------------- tanks ---------------- */
+function buildTank(name,tk,notch){   // notch.side = 'x0' | 'x1'
+  const g=group(name),yb=B+tk.y0,h=tk.h,sx=tk.x1-tk.x0,sz=tk.z1-tk.z0,cx=(tk.x0+tk.x1)/2,cz=(tk.z0+tk.z1)/2;
+  box(name+'_Bottom',sx+2*T,T,sz+2*T,M.acrylic,cx,yb-T/2,cz,g);
+  box(name+'_WallZ0',sx,h,T,M.acrylic,cx,yb+h/2,tk.z0-T/2,g);
+  box(name+'_WallZ1',sx,h,T,M.acrylic,cx,yb+h/2,tk.z1+T/2,g);
+  const plain=notch.side==='x1'?'x0':'x1';
+  box(`${name}_Wall${plain.toUpperCase()}`,T,h,sz+2*T,M.acrylic,plain==='x0'?tk.x0-T/2:tk.x1+T/2,yb+h/2,cz,g);
+  const x=notch.side==='x1'?tk.x1+T/2:tk.x0-T/2, nm=notch.side.toUpperCase();
+  const part=(z0,z1,y0,y1,k)=>{if(z1-z0>1e-4&&y1-y0>1e-4)box(`${name}_Wall${nm}${k}`,T,y1-y0,z1-z0,M.acrylic,x,yb+(y0+y1)/2,(z0+z1)/2,g);};
+  part(tk.z0-T,notch.za-T,0,h,'a'); part(notch.zb+T,tk.z1+T,0,h,'b');
+  part(notch.za-T,notch.zb+T,0,notch.ya,'c'); part(notch.za-T,notch.zb+T,notch.yb,h,'d');
+  const water=new THREE.Mesh(new THREE.BoxGeometry(1,1,1).translate(0,0.5,0),M.water);
+  water.name=name+'_Water'; water.position.set(cx,yb+0.001,cz); water.scale.set(sx-0.004,0.001,sz-0.004); g.add(water);
+  return {g,water,area:sx*sz,yb};
+}
+const UT=CFG.upperTank, LT=CFG.lowerTank;
+const upper=buildTank('UpperTank',UT,{side:'x1',za:-W/2,zb:W/2,ya:0,yb:WH});
+const lower=buildTank('LowerTank',LT,{side:'x0',za:-W/2,zb:W/2,ya:CH.bedEnd-LT.y0-T,yb:LT.h});
+[[UT.x0+0.02,UT.z0+0.02],[UT.x1-0.02,UT.z0+0.02],[UT.x0+0.02,UT.z1-0.02],[UT.x1-0.02,UT.z1-0.02]]
+  .forEach(([x,z],i)=>box(`UpperTank_Post${i+1}`,0.03,UT.y0-T,0.03,M.steel,x,B+(UT.y0-T)/2,z,upper.g));
+label('ถังบน',V3(0.3,B+UT.y0+UT.h+0.05,0));
+label('ถังล่าง',V3(4.1,B+LT.y0+LT.h+0.05,0));
+
+/* ---------------- channel ---------------- */
+const chan=group('Channel');
+segs.forEach((sg,i)=>{
+  const n=i+1, sgG=group(`Channel_Seg${n}`,chan);
+  let o=alongGroup(`Seg${n}_BedFrame`,sg,sg.s0,sg.s1,sgG); box(`Seg${n}_Bed`,o.len,T,W+2*T,M.bed,0,-T/2,0,o.g);
+  box(`Seg${n}_WallRight`,o.len,WH,T,M.acrylic,0,WH/2,-(W/2+T/2),o.g);
+  box(`Seg${n}_WallLeft`,o.len,WH,T,M.acrylic,0,WH/2,(W/2+T/2),o.g);
+});
+[0.3,0.68,1.1,1.5,1.9,2.15,2.45,2.85,3.15].forEach((s,i)=>{
+  const p=segPoint(segOf(s),s),h=p.y-T-B; box(`Channel_Support${i+1}`,0.025,h,0.025,M.steel,p.x,B+h/2,p.z,chan);
+});
+label('รางน้ำ (ตรง 3.2 m)',segPoint(segs[0],1.6).add(V3(0,0.28,0)));
+
+/* ---------------- channel water slices ---------------- */
+const unitBox=new THREE.BoxGeometry(1,1,1).translate(0,0.5,0);
+const sliceGeo=unitBox.clone(); sliceGeo.setIndex(Array.from(sliceGeo.index.array.slice(12))); sliceGeo.clearGroups();
+const gateS=CFG.gates.map(g=>g.s);
+const reachOf=s=>s<gateS[0]?-1:s<gateS[1]?0:s<gateS[2]?1:2;
+const waterG=group('ChannelWater'); const pieces=[];
+segs.forEach(sg=>{
+  const br=[sg.s0,...gateS.filter(s=>s>sg.s0&&s<sg.s1),sg.s1];
+  for(let k=0;k<br.length-1;k++){
+    const a=br[k],b=br[k+1],n=Math.max(1,Math.ceil((b-a)/0.03));
+    for(let j=0;j<n;j++){
+      const pa=a+(b-a)*j/n,pb=a+(b-a)*(j+1)/n,sm=(pa+pb)/2;
+      const {g,len}=alongGroup(`Water_${pieces.length}`,sg,pa,pb,waterG);
+      const m=new THREE.Mesh(sliceGeo,M.water); m.name=g.name+'_Mesh'; m.scale.set(len,0.001,W-0.003); g.add(m);
+      pieces.push({mesh:m,s:sm,len:pb-pa,bed:bedAt(sm),reach:reachOf(sm)});
+    }
+  }
+});
+const reaches=[0,1,2].map(r=>{const ps=pieces.filter(p=>p.reach===r);return {ps,minBed:Math.min(...ps.map(p=>p.bed))};});
+function volOf(R,eta){let v=0;for(const p of R.ps){const d=eta-p.bed;if(d>0)v+=W*p.len*d;}return v;}
+reaches.forEach(R=>R.cap=volOf(R,R.minBed+WH));
+function etaOf(R,V){if(V<=1e-9)return R.minBed;let lo=R.minBed,hi=R.minBed+WH+0.05;for(let i=0;i<34;i++){const m=(lo+hi)/2;if(volOf(R,m)<V)lo=m;else hi=m;}return (lo+hi)/2;}
+
+/* ---------------- iGates (คลิกได้) ---------------- */
+const pickables=[];
+const gates=CFG.gates.map((cfg,idx)=>{
+  const sg=segOf(cfg.s),p=segPoint(sg,cfg.s),H=CFG.gate.leafH,top=H+CFG.gate.maxOpen+0.03,zo=W/2+T+0.012;
+  const g=group(cfg.id); g.position.copy(p); g.rotation.y=sg.yaw; g.userData.gateIndex=idx;
+  for(const sgn of [-1,1]) box(`${cfg.id}_Guide${sgn>0?'L':'R'}`,0.02,top,0.02,M.steel,0,top/2,sgn*zo,g);
+  box(`${cfg.id}_Beam`,0.035,0.025,2*zo+0.03,M.steel,0,top+0.0125,0,g);
+  box(`${cfg.id}_Actuator`,0.07,0.09,0.07,M.actuator,0,top+0.07,0,g);
+  const motor=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.07,24),M.pumpMotor);
+  motor.name=`${cfg.id}_Motor`; motor.rotation.x=Math.PI/2; motor.position.set(0,top+0.07,0.07); motor.castShadow=true; g.add(motor);
+  const led=new THREE.Mesh(new THREE.SphereGeometry(0.008,16,12),new THREE.MeshStandardMaterial({color:0x22c55e,emissive:0x22c55e,emissiveIntensity:1.2}));
+  led.name=`${cfg.id}_StatusLED`; led.position.set(0.036,top+0.1,0); g.add(led);
+  const leaf=box(`${cfg.id}_Leaf`,0.012,H,W-0.002,M.gate,0,H/2,0,g);
+  const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,1,12).translate(0,0.5,0),M.steel); rod.name=`${cfg.id}_Spindle`; g.add(rod);
+  // กล่องโปร่งใสสำหรับคลิก
+  const hit=new THREE.Mesh(new THREE.BoxGeometry(0.12,top+0.15,W+0.08),new THREE.MeshBasicMaterial({visible:false}));
+  hit.name=`${cfg.id}_HitArea`; hit.position.y=(top+0.15)/2; hit.userData.gateIndex=idx; g.add(hit); pickables.push(hit);
+  label(cfg.id,p.clone().add(V3(0,top+0.17,0)),'gate',()=>openDetail(idx));
+  return {cfg,g,leaf,rod,led,H,top};
+});
+
+/* ---------------- FTO ---------------- */
+const ftos=CFG.ftos.map(cfg=>{
+  const sg=segOf(cfg.s),p=segPoint(sg,cfg.s),off=sg.inner*(W/2+T+0.045);
+  const g=group(cfg.id); g.position.copy(p); g.rotation.y=sg.yaw;
+  box(`${cfg.id}_Chamber`,0.1,0.3,0.08,M.fto,0,0.07,off,g);
+  const leaf=box(`${cfg.id}_Leaf`,0.08,0.05,0.006,M.ftoLeaf,0,0.025,sg.inner*(W/2+T+0.004),g);
+  const wp=V3(p.x+sg.across.x*off,p.y,p.z+sg.across.y*off);
+  label(cfg.id,wp.clone().add(V3(0,0.28,0)),'fto');
+  return {cfg,g,leaf,bottom:V3(wp.x,p.y-0.08,wp.z),reach:reachOf(cfg.s)};
+});
+
+/* ---------------- weir + nappe ---------------- */
+const lastSeg=segs[segs.length-1];
+const weirP=segPoint(lastSeg,LTOT+0.003); weirP.y=B+CH.bedEnd;
+const weirG=group('Weir'); weirG.position.copy(weirP); weirG.rotation.y=lastSeg.yaw;
+box('Weir_Plate',0.006,CFG.weir.plateH,W+2*T,M.gate,0,CFG.weir.crest-CFG.weir.plateH/2,0,weirG);
+label('Sharp Crested Weir',weirP.clone().add(V3(0,0.3,0)),'weir');
+const crestY=B+CH.bedEnd+CFG.weir.crest;
+const NN=20,nappeGeo=new THREE.BufferGeometry();
+nappeGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array((NN+1)*6),3));
+const nIdx=[];for(let i=0;i<NN;i++){const a=i*2;nIdx.push(a,a+1,a+2,a+1,a+3,a+2);}nappeGeo.setIndex(nIdx);
+const nappe=new THREE.Mesh(nappeGeo,M.waterFall); nappe.name='Weir_Nappe'; nappe.frustumCulled=false; model.add(nappe);
+function updateNappe(H,yWater){
+  if(H<=0.0005){nappe.visible=false;return;} nappe.visible=true;
+  const pos=nappeGeo.attributes.position,u=Math.sqrt(G*H)*0.9+0.05,y0=crestY+H*0.45,tEnd=Math.sqrt(2*Math.max(y0-yWater,0.01)/G);
+  const dx=lastSeg.dir.x,dz=lastSeg.dir.y,ax=lastSeg.across.x*W/2,az=lastSeg.across.y*W/2;
+  for(let i=0;i<=NN;i++){const t=tEnd*i/NN,x=weirP.x+dx*(u*t+0.004),z=weirP.z+dz*(u*t+0.004),y=y0-0.5*G*t*t;
+    pos.setXYZ(i*2,x-ax,y,z-az);pos.setXYZ(i*2+1,x+ax,y,z+az);}
+  pos.needsUpdate=true; nappeGeo.computeVertexNormals(); M.waterFall.opacity=Math.min(0.75,0.25+H*12);
+}
+
+/* ---------------- pump + pipes (ตามรูปด้านข้าง: ท่อ 4" วิ่งใต้รางกลับมาที่ปั๊ม) ---------------- */
+const pump=group('Pump'); const PX=0.95,PZ=-0.18,PY=B+0.09;
+box('Pump_Base',0.34,0.015,0.16,M.steel,PX-0.13,B+0.0075,PZ,pump);
+const vol=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.06,36),M.pumpBody); vol.name='Pump_Volute';
+vol.rotation.z=Math.PI/2; vol.position.set(PX,PY,PZ); vol.castShadow=true; pump.add(vol);
+const mot=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.2,36),M.pumpMotor); mot.name='Pump_Motor';
+mot.rotation.z=Math.PI/2; mot.position.set(PX-0.14,PY,PZ); mot.castShadow=true; pump.add(mot);
+const fan=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.03,36),M.actuator); fan.name='Pump_FanCover';
+fan.rotation.z=Math.PI/2; fan.position.set(PX-0.255,PY,PZ); pump.add(fan);
+box('Pump_TerminalBox',0.06,0.04,0.06,M.pumpMotor,PX-0.14,PY+0.075,PZ,pump);
+box('Pump_Foot1',0.03,0.03,0.12,M.pumpBody,PX,B+0.03,PZ,pump); box('Pump_Foot2',0.03,0.03,0.12,M.pumpMotor,PX-0.2,B+0.03,PZ,pump);
+label('ปั๊มน้ำ',V3(PX-0.1,PY+0.15,PZ-0.05));
+const RS=CFG.pipe.supplyR,RD=CFG.pipe.drainR,YUP=B+0.30,RISER_TOP=B+UT.y0+UT.h+0.08,OUT=V3(0.12,RISER_TOP-0.045,-0.10);
+pipe('Pipe_Suction_4in',[V3(LT.x0+0.02,PY,PZ),V3(PX+0.03,PY,PZ)],RS,M.pipeSupply);
+flange('Pipe_Suction_Flange',V3(LT.x0-T,PY,PZ),V3(1,0,0),RS,M.pipeSupply);
+pipe('Pipe_Supply_4in',[V3(PX,PY,PZ),V3(PX,YUP,PZ),V3(PX,YUP,-0.30),V3(0.12,YUP,-0.30),V3(0.12,RISER_TOP,-0.30),V3(0.12,RISER_TOP,-0.10),OUT],RS,M.pipeSupply);
+label('ท่อสูบน้ำ 4"',V3(2.4,PY+0.09,PZ));
+const YDR=B+RD+0.004,[f1,f2]=ftos,DZp=f1.bottom.z;
+pipe('Pipe_Drain_3in',[f1.bottom.clone().setY(f1.bottom.y+0.01),V3(f1.bottom.x,YDR,DZp),V3(LT.x0+0.02,YDR,DZp)],RD,M.pipeDrain);
+pipe('Pipe_Drain_FTO2_3in',[f2.bottom.clone().setY(Math.max(f2.bottom.y+0.01,YDR)),V3(f2.bottom.x,YDR,DZp)],RD,M.pipeDrain);
+flange('Pipe_Drain_Flange',V3(LT.x0-T,YDR,DZp),V3(1,0,0),RD,M.pipeDrain);
+label('ท่อระบายน้ำ 3"',V3(1.9,YDR+0.07,DZp+0.05));
+const jet=new THREE.Mesh(new THREE.CylinderGeometry(1,1,1,20).translate(0,-0.5,0),M.waterFall);
+jet.name='Pump_OutletJet'; jet.position.copy(OUT); model.add(jet);
+
+/* =====================================================================
+   SIMULATION
+   ===================================================================== */
+const S={mode:'sim',speed:1,pumpOn:true,pumpSpeed:0.7,
+  target:[0.06,0.08,0.10],open:[0.06,0.08,0.10],
+  gmode:['open','open','open'],qset:[0.003,0.003,0.003],qsat:[false,false,false],
+  fto:[0,0],VU:0,VL:0,V:[0,0,0],eta:reaches.map(R=>R.minBed),
+  Q:{pump:0,gate:[0,0,0],fto:[0,0],weir:0},warn:''};
+function resetSim(){S.VU=upper.area*0.20;S.VL=lower.area*0.25;S.V=[0,0,0];S.open=[...S.target];}
+resetSim();
+const Cd=CFG.gate.Cd, AMAX=CFG.gate.maxOpen;
+function gateFlow(hu,hd,a){
+  if(a<0.0005||hu<=1e-5)return 0;
+  if(a>=0.8*hu){const sub=hd>0?Math.pow(Math.max(0,1-Math.pow(hd/hu,1.5)),0.385):1;return 1.7*W*Math.pow(hu,1.5)*sub;}
+  const dh=hu-Math.max(hd,0.61*a); return dh>0?Cd*W*a*Math.sqrt(2*G*dh):0;
+}
+const gateQ=(h1,h2,a)=>h1>=h2?gateFlow(h1,h2,a):-gateFlow(h2,h1,a);
+const dAt=(r,s)=>Math.max(S.eta[r]-bedAt(s),0);
+// ความลึกน้ำด้านเหนือ/ท้ายประตู i (m เหนือท้องราง ณ ตำแหน่งประตู)
+function heads(i){const s=gateS[i];return {hu:i===0?S.VU/upper.area+(CH.bedStart-bedAt(s)):dAt(i-1,s),hd:dAt(i,s)};}
+// หาระยะบานที่ให้ Q ตามต้องการ (ใช้สมการเดียวกับ sim)
+function solveOpening(hu,hd,Q){
+  if(Q<=0)return {a:0,sat:false};
+  if(hu<=hd+1e-5)return {a:AMAX,sat:true};
+  if(gateFlow(hu,hd,AMAX)<Q)return {a:AMAX,sat:true};
+  let lo=0,hi=AMAX;for(let k=0;k<32;k++){const m=(lo+hi)/2;if(gateFlow(hu,hd,m)<Q)lo=m;else hi=m;}
+  return {a:hi,sat:false};
+}
+// สูตร orifice สำหรับฟอร์ม (กรณีกรอก ΔH เอง): Q = Cd·b·a·√(2gΔH)
+const orificeA=(Q,dH)=>dH>0?Q/(Cd*W*Math.sqrt(2*G*dH)):Infinity;
+const orificeQ=(a,dH)=>dH>0?Cd*W*a*Math.sqrt(2*G*dH):0;
+
+function step(dt){
+  for(let i=0;i<3;i++){
+    if(S.gmode[i]==='q'){const {hu,hd}=heads(i);const r=solveOpening(hu,hd,S.qset[i]);S.target[i]=r.a;S.qsat[i]=r.sat&&S.qset[i]>0&&hu>0.005;}
+    else S.qsat[i]=false;
+    const d=S.target[i]-S.open[i],m=CFG.gate.speed*dt; S.open[i]+=Math.abs(d)<m?d:Math.sign(d)*m;
+  }
+  S.eta=reaches.map((R,r)=>etaOf(R,S.V[r]));
+  const hL=S.VL/lower.area;
+  const Qg=[0,1,2].map(i=>{const {hu,hd}=heads(i);return gateQ(hu,hd,S.open[i]);});
+  const H=dAt(2,LTOT)-CFG.weir.crest,Qw=H>0?1.84*W*Math.pow(H,1.5):0;
+  const Qf=ftos.map((f,i)=>{const h=dAt(f.reach,f.cfg.s);return S.fto[i]>0&&h>0?0.6*CFG.fto.area*S.fto[i]*Math.sqrt(2*G*h):0;});
+  const Qp=S.pumpOn&&hL>0.03?CFG.pump.qmax*S.pumpSpeed:0;
+  const fIn=[0,0,0]; ftos.forEach((f,i)=>fIn[f.reach]+=Qf[i]);
+  S.VU+=(Qp-Qg[0])*dt;
+  S.V[0]+=(Qg[0]-Qg[1]-fIn[0])*dt; S.V[1]+=(Qg[1]-Qg[2]-fIn[1])*dt; S.V[2]+=(Qg[2]-Qw-fIn[2])*dt;
+  S.VL+=(Qw+Qf[0]+Qf[1]-Qp)*dt;
+  const w=[];
+  const capU=upper.area*(UT.h-0.02); if(S.VU>capU){S.VL+=S.VU-capU;S.VU=capU;w.push('ถังบนล้น');}
+  reaches.forEach((R,r)=>{if(S.V[r]>R.cap){S.VL+=S.V[r]-R.cap;S.V[r]=R.cap;w.push(`น้ำล้นตลิ่งราง ช่วง ${r+1}`);}if(S.V[r]<0)S.V[r]=0;});
+  S.qsat.forEach((s,i)=>s&&w.push(`${CFG.gates[i].id}: Q ที่ตั้งเกินความสามารถ (บานเปิดสุด)`));
+  if(S.VU<0)S.VU=0; if(S.VL<0)S.VL=0;
+  S.warn=w.join('\n'); S.Q={pump:Qp,gate:Qg,fto:Qf,weir:Qw};
+}
+
+/* ---------------- state -> 3D ---------------- */
+function syncVisuals(t){
+  const hU=S.VU/upper.area,hL=S.VL/lower.area;
+  upper.water.scale.y=Math.max(hU,0.001); lower.water.scale.y=Math.max(hL,0.001);
+  const film=S.Q.gate.map(q=>0.6*Math.pow(Math.max(q,0)/(W*Math.sqrt(G)),2/3));
+  for(const p of pieces){
+    let d=p.reach<0?hU+(CH.bedStart-p.bed):Math.max(S.eta[p.reach]-p.bed,film[p.reach]);
+    d=Math.min(Math.max(d,0),WH); p.mesh.visible=d>0.0015; p.mesh.scale.y=Math.max(d,0.0005);
+  }
+  gates.forEach((gt,i)=>{
+    const a=S.open[i]; gt.leaf.position.y=a+gt.H/2; gt.rod.position.y=a+gt.H; gt.rod.scale.y=Math.max(gt.top-(a+gt.H),0.001);
+    const moving=Math.abs(S.target[i]-a)>0.0005,c=moving?(Math.sin(t*12)>0?0xf59e0b:0x3a2a00):(S.gmode[i]==='q'?0x8b5cf6:0x22c55e);
+    gt.led.material.color.setHex(c); gt.led.material.emissive.setHex(c);
+    gt.leaf.material=(i===hoverGate||i===detailGate)?M.gateHi:M.gate;
+  });
+  ftos.forEach((f,i)=>f.leaf.position.y=0.025+S.fto[i]*0.045);
+  updateNappe(dAt(2,LTOT)-CFG.weir.crest,lower.yb+hL);
+  const jl=OUT.y-(upper.yb+hU); jet.visible=S.Q.pump>0&&jl>0;
+  const jr=0.012+0.02*Math.sqrt(S.Q.pump/CFG.pump.qmax); jet.scale.set(jr,Math.max(jl,0.001),jr);
+}
+
+/* ---------------- logs (iGate Report / Gate open Report) ---------------- */
+const LOGMAX=500;
+const wlLog=CFG.gates.map(()=>[]), goLog=CFG.gates.map(()=>[]);
+const ts=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;};
+function logGateOpen(i,open,method,source){goLog[i].unshift({date:ts(),open,method,source});if(goLog[i].length>LOGMAX)goLog[i].pop();if(detailGate===i)renderTable();}
+function logLevels(){
+  CFG.gates.forEach((g,i)=>{const {hu,hd}=heads(i);wlLog[i].unshift({date:ts(),us:hu,ds:hd,open:S.open[i],q:S.Q.gate[i]});if(wlLog[i].length>LOGMAX)wlLog[i].pop();});
+  if(detailGate>=0&&curTab==='wl')renderTable();
+}
+
+/* ---------------- panel UI ---------------- */
+function slider(parent,cls,name,min,max,step,val,fmt,onInput){
+  const d=document.createElement('div'); d.className='ctl '+cls;
+  d.innerHTML=`<div class="row"><span>${name}</span><output></output></div><input type="range" min="${min}" max="${max}" step="${step}" value="${val}">`;
+  const inp=d.querySelector('input'),out=d.querySelector('output');
+  const upd=()=>{out.textContent=fmt(+inp.value);onInput(+inp.value);}; inp.addEventListener('input',upd); upd();
+  parent.appendChild(d); return {inp,out,set(v){inp.value=v;out.textContent=fmt(v);}};
+}
+slider(document.getElementById('ftos'),'f','FTO1',0,100,1,0,v=>`${v}%`,v=>S.fto[0]=v/100);
+slider(document.getElementById('ftos'),'f','FTO2',0,100,1,0,v=>`${v}%`,v=>S.fto[1]=v/100);
+const ftoUI=[...document.querySelectorAll('#ftos .ctl')].map(d=>({set(v){d.querySelector('input').value=v;d.querySelector('output').textContent=v+'%';}}));
+const pumpUI=slider(document.getElementById('pumpCtl'),'','ความเร็วรอบ',0,100,1,S.pumpSpeed*100,v=>`${v}% (${(CFG.pump.qmax*v/100*1000).toFixed(1)} L/s)`,v=>S.pumpSpeed=v/100);
+slider(document.getElementById('simCtl'),'','ความเร็วจำลอง',1,20,1,1,v=>`×${v}`,v=>S.speed=v);
+
+// บล็อกควบคุมประตู: โหมด "ระยะบาน" หรือ "Q"
+const gateUI=CFG.gates.map((g,i)=>{
+  const d=document.createElement('div'); d.className='gblk ctl g';
+  d.innerHTML=`<div class="top"><b>${g.id}</b><span class="seg"><button data-m="open">ระยะบาน</button><button data-m="q">Q</button></span><button class="det">รายละเอียด</button></div>
+    <div class="row"><span class="lab"></span><output></output></div><input type="range">
+    <div class="meta"><span class="m1"></span><span class="m2"></span></div>`;
+  document.getElementById('gates').appendChild(d);
+  const inp=d.querySelector('input'),out=d.querySelector('output'),lab=d.querySelector('.lab');
+  const ui={d,inp,out,
+    refresh(){
+      const q=S.gmode[i]==='q'; d.classList.toggle('q',q);
+      d.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.m===S.gmode[i]));
+      if(q){inp.min=0;inp.max=CFG.qMaxUI*1000;inp.step=0.1;inp.value=S.qset[i]*1000;lab.textContent='Q ที่ต้องการ';out.textContent=`${(+inp.value).toFixed(1)} L/s`;}
+      else{inp.min=0;inp.max=AMAX*1000;inp.step=1;inp.value=Math.round(S.target[i]*1000);lab.textContent='ระยะเปิดบาน';out.textContent=`${inp.value} mm`;}
+    }};
+  inp.addEventListener('input',()=>{
+    if(S.gmode[i]==='q'){S.qset[i]=+inp.value/1000;out.textContent=`${(+inp.value).toFixed(1)} L/s`;}
+    else{S.target[i]=+inp.value/1000;out.textContent=`${inp.value} mm`;}
+  });
+  inp.addEventListener('change',()=>logGateOpen(i,S.gmode[i]==='q'?null:S.target[i],S.gmode[i]==='q'?`Q-Control (${(S.qset[i]*1000).toFixed(1)} L/s)`:'Manual','Panel'));
+  d.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{
+    if(b.dataset.m==='q'&&S.gmode[i]!=='q')S.qset[i]=Math.max(S.Q.gate[i],0)||S.qset[i];
+    S.gmode[i]=b.dataset.m; ui.refresh();
+    logGateOpen(i,S.gmode[i]==='q'?null:S.target[i],S.gmode[i]==='q'?`Q-Control (${(S.qset[i]*1000).toFixed(1)} L/s)`:'Manual','Panel');
+  });
+  d.querySelector('.det').onclick=()=>openDetail(i);
+  ui.refresh(); return ui;
+});
+function updateGateMeta(){gateUI.forEach((u,i)=>{u.d.querySelector('.m1').textContent=`บานจริง ${(S.open[i]*1000).toFixed(0)} mm`;u.d.querySelector('.m2').textContent=`Q ${(S.Q.gate[i]*1000).toFixed(2)} L/s`;});}
+
+const pumpBtn=document.getElementById('pumpBtn');
+const setPumpBtn=()=>{pumpBtn.textContent='ปั๊ม: '+(S.pumpOn?'เปิด':'ปิด');pumpBtn.classList.toggle('on',S.pumpOn);};
+pumpBtn.onclick=()=>{S.pumpOn=!S.pumpOn;setPumpBtn();};
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+let labelsOn=true; const lblBtn=document.getElementById('lblBtn');
+lblBtn.onclick=()=>{labelsOn=!labelsOn;labels.forEach(l=>l.visible=labelsOn);lblBtn.classList.toggle('on',labelsOn);};
+const modeBtn=document.getElementById('modeBtn');
+function setMode(m){S.mode=m;modeBtn.textContent='โหมด: '+(m==='sim'?'Sim':'Live');modeBtn.classList.toggle('on',m==='live');}
+modeBtn.onclick=()=>setMode(S.mode==='sim'?'live':'sim');
+document.getElementById('resetBtn').onclick=resetSim;
+document.getElementById('collapse').onclick=e=>{const p=document.getElementById('panel');p.classList.toggle('collapsed');e.target.textContent=p.classList.contains('collapsed')?'+':'–';};
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
+document.getElementById('glbBtn').onclick=()=>{
+  labels.forEach(l=>l.visible=false);
+  new GLTFExporter().parse(model,res=>{download(new Blob([res],{type:'model/gltf-binary'}),'iGate_model_straight.glb');labels.forEach(l=>l.visible=labelsOn);},
+    err=>{console.error(err);labels.forEach(l=>l.visible=labelsOn);},{binary:true});
+};
+const ro=document.getElementById('readout'),warnEl=document.getElementById('warn');
+const mm=v=>(v*1000).toFixed(0)+' mm',ls=v=>(v*1000).toFixed(2)+' L/s';
+function updateReadout(){
+  const rows=[['ระดับน้ำถังบน',mm(S.VU/upper.area)],['หน้า iGate2',mm(dAt(0,gateS[1]))],['หน้า iGate3',mm(dAt(1,gateS[2]))],
+    ['หน้าฝาย',mm(dAt(2,LTOT))],['ระดับน้ำถังล่าง',mm(S.VL/lower.area)],['Q ปั๊ม',ls(S.Q.pump)],
+    ...S.Q.fto.map((q,i)=>[`Q ${CFG.ftos[i].id}`,ls(q)]),['Q ฝาย',ls(S.Q.weir)]];
+  ro.innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+  warnEl.textContent=S.warn; updateGateMeta();
+}
+
+/* =====================================================================
+   GATE DETAIL (คลิกที่ประตูในภาพ 3D, ป้ายชื่อ หรือปุ่ม "รายละเอียด")
+   ===================================================================== */
+let detailGate=-1,hoverGate=-1,curTab='wl',lastCalc='manual';
+const modal=document.getElementById('modal'),$=id=>document.getElementById(id);
+const fDH=$('fDH'),fQ=$('fQ'),fA=$('fA'),fAuto=$('fDHauto'),fHold=$('fHold'),fMsg=$('fMsg');
+function openDetail(i){
+  detailGate=i; modal.hidden=false; $('mTitle').textContent=CFG.gates[i].id;
+  const {hu,hd}=heads(i);
+  fAuto.checked=true; fDH.readOnly=true; fDH.value=Math.max(hu-hd,0).toFixed(3);
+  fQ.value=Math.max(S.Q.gate[i],0).toFixed(4); fA.value=S.open[i].toFixed(3);
+  fHold.checked=S.gmode[i]==='q'; if(fHold.checked)fQ.value=S.qset[i].toFixed(4);
+  fMsg.textContent=''; lastCalc='manual'; renderDetail(); renderTable();
+}
+function closeDetail(){modal.hidden=true;detailGate=-1;}
+$('mClose').onclick=closeDetail;
+$('mPrev').onclick=()=>openDetail((detailGate+2)%3); $('mNext').onclick=()=>openDetail((detailGate+1)%3);
+modal.addEventListener('click',e=>{if(e.target===modal)closeDetail();});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)closeDetail();});
+fAuto.onchange=()=>{fDH.readOnly=fAuto.checked;if(fAuto.checked){const {hu,hd}=heads(detailGate);fDH.value=Math.max(hu-hd,0).toFixed(3);}};
+
+$('fCalcA').onclick=()=>{
+  const i=detailGate,Q=+fQ.value; if(!(Q>=0)){fMsg.textContent='กรุณากรอก Q';return;}
+  let a,note;
+  if(fAuto.checked){const {hu,hd}=heads(i);const r=solveOpening(hu,hd,Q);a=r.a;
+    note=r.sat?`⚠ ระดับน้ำปัจจุบันจ่ายได้สูงสุด ${(gateFlow(hu,hd,AMAX)*1000).toFixed(2)} L/s → เปิดสุด ${AMAX} m`:`คำนวณจากระดับน้ำจริง US ${hu.toFixed(3)} m / DS ${hd.toFixed(3)} m`;}
+  else{const dH=+fDH.value;a=orificeA(Q,dH);note=`a = Q / (Cd·b·√(2gΔH)), Cd=${Cd}, b=${W} m`;if(a>AMAX){note=`⚠ ต้องเปิด ${a.toFixed(3)} m เกินระยะสูงสุด → ใช้ ${AMAX} m`;a=AMAX;}}
+  fA.value=a.toFixed(3); fMsg.textContent=note; lastCalc='q2a';
+};
+$('fCalcQ').onclick=()=>{
+  const i=detailGate,a=Math.min(Math.max(+fA.value,0),AMAX);let Q,note;
+  if(fAuto.checked){const {hu,hd}=heads(i);Q=Math.max(gateQ(hu,hd,a),0);note=`คำนวณจากระดับน้ำจริง (sluice/free-flow)`;}
+  else{Q=orificeQ(a,+fDH.value);note=`Q = Cd·b·a·√(2gΔH)`;}
+  fQ.value=Q.toFixed(4); fMsg.textContent=note; lastCalc='a2q';
+};
+$('fSubmit').onclick=()=>{
+  const i=detailGate;
+  if(fHold.checked){
+    S.qset[i]=Math.max(+fQ.value||0,0); S.gmode[i]='q';
+    logGateOpen(i,null,`Q-Control (${(S.qset[i]*1000).toFixed(2)} L/s)`,'Detail form');
+    fMsg.textContent=`ตั้ง Q-Control = ${S.qset[i].toFixed(4)} m³/s — ประตูจะปรับบานอัตโนมัติ`;
+  }else{
+    const a=Math.min(Math.max(+fA.value||0,0),AMAX); S.gmode[i]='open'; S.target[i]=a;
+    logGateOpen(i,a,lastCalc==='q2a'?`คำนวณจาก Q (${(+fQ.value).toFixed(4)} m³/s)`:'Manual','Detail form');
+    fMsg.textContent=`สั่งเปิดบาน ${a.toFixed(3)} m แล้ว`;
+  }
+  gateUI[i].refresh();
+};
+document.querySelectorAll('.tabs [data-tab]').forEach(b=>b.onclick=()=>{curTab=b.dataset.tab;document.querySelectorAll('.tabs [data-tab]').forEach(x=>x.classList.toggle('on',x===b));renderTable();});
+function renderTable(){
+  const i=detailGate; if(i<0)return; const t=$('mTable');
+  if(curTab==='wl'){
+    t.innerHTML=`<tr><th>Date</th><th>Up Stream Water Level (m)</th><th>Down Stream Water Level (m)</th><th>Gate open (m)</th><th>Q (m³/s)</th></tr>`+
+      wlLog[i].slice(0,120).map(r=>`<tr><td>${r.date}</td><td>${r.us.toFixed(3)}</td><td>${r.ds.toFixed(3)}</td><td>${r.open.toFixed(3)}</td><td>${r.q.toFixed(4)}</td></tr>`).join('');
+  }else{
+    t.innerHTML=`<tr><th>Date</th><th>Gate open (m)</th><th>Method</th><th>Source</th></tr>`+
+      (goLog[i].map(r=>`<tr><td>${r.date}</td><td>${r.open==null?'อัตโนมัติ':r.open.toFixed(3)}</td><td>${r.method}</td><td>${r.source}</td></tr>`).join('')||'<tr><td colspan="4">ยังไม่มีการสั่งงาน</td></tr>');
+  }
+}
+$('csvBtn').onclick=()=>{
+  const i=detailGate,id=CFG.gates[i].id;
+  const csv=curTab==='wl'
+    ?['Date,UpStreamWL_m,DownStreamWL_m,GateOpen_m,Q_m3s',...wlLog[i].map(r=>`${r.date},${r.us.toFixed(4)},${r.ds.toFixed(4)},${r.open.toFixed(4)},${r.q.toFixed(5)}`)]
+    :['Date,GateOpen_m,Method,Source',...goLog[i].map(r=>`${r.date},${r.open==null?'':r.open.toFixed(4)},"${r.method}","${r.source}"`)];
+  download(new Blob(['﻿'+csv.join('\n')],{type:'text/csv'}),`${id}_${curTab==='wl'?'report':'gateopen_report'}.csv`);
+};
+
+// ภาพตัดขวางประตู (SVG) — อัปเดตสด
+function renderDetail(){
+  const i=detailGate; if(i<0)return;
+  const {hu,hd}=heads(i),a=S.open[i],tgt=S.target[i],Q=S.Q.gate[i],k=520,by=250,gx=220,H=CFG.gate.leafH;
+  const moving=Math.abs(tgt-a)>0.0005,qm=S.gmode[i]==='q';
+  const pill=$('mPill'); pill.className='pill'+(moving?' mv':qm?' q':''); pill.textContent=moving?'กำลังเคลื่อนบาน':qm?'Q-Control':'พร้อม';
+  const yU=by-Math.min(hu,0.3)*k,yD=by-Math.min(hd,0.3)*k,leafB=by-a*k,leafT=leafB-H*k*0.55;
+  const wallTop=by-WH*k;
+  const arrowY=by-Math.min(a,Math.max(hd,0.01))*k/2-4;
+  $('mSvg').innerHTML=`
+   <defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fa8ec"/><stop offset="1" stop-color="#2f6fc4"/></linearGradient>
+   <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#1d2733"/></marker></defs>
+   <text x="14" y="276" font-size="11" fill="#5d6b7a">ภาพตัดตามยาว ณ ${CFG.gates[i].id} (ไหลจากซ้าย → ขวา)</text>
+   <line x1="20" y1="${wallTop}" x2="420" y2="${wallTop}" stroke="#9fb6cc" stroke-dasharray="4 4"/>
+   <text x="424" y="${wallTop+4}" font-size="10" fill="#7a8a9a" text-anchor="end" dy="-6">ขอบราง 0.20 m</text>
+   <rect x="20" y="${yU}" width="${gx-20}" height="${by-yU}" fill="url(#wg)" opacity=".85"/>
+   <rect x="${gx+8}" y="${yD}" width="${420-gx-8}" height="${by-yD}" fill="url(#wg)" opacity=".85"/>
+   <rect x="14" y="${by}" width="412" height="10" fill="#c9d2db"/>
+   <rect x="${gx-12}" y="40" width="5" height="${by-40}" fill="#56606b"/><rect x="${gx+15}" y="40" width="5" height="${by-40}" fill="#56606b"/>
+   <rect x="${gx-16}" y="30" width="40" height="12" fill="#2e3a4b"/><rect x="${gx-6}" y="12" width="20" height="18" rx="2" fill="#2e3a4b"/>
+   <circle cx="${gx+10}" cy="18" r="3" fill="${moving?'#f59e0b':qm?'#8b5cf6':'#22c55e'}"/>
+   <line x1="${gx+4}" y1="42" x2="${gx+4}" y2="${leafT}" stroke="#56606b" stroke-width="3"/>
+   <rect x="${gx}" y="${leafT}" width="8" height="${leafB-leafT}" fill="#d62828"/>
+   ${Math.abs(tgt-a)>0.0005?`<rect x="${gx-3}" y="${by-tgt*k-1}" width="14" height="2" fill="#f59e0b"/>`:''}
+   ${Q>0?`<line x1="${gx-40}" y1="${arrowY}" x2="${gx+50}" y2="${arrowY}" stroke="#1d2733" stroke-width="1.6" marker-end="url(#ar)"/>`:''}
+   <line x1="${gx+30}" y1="${by}" x2="${gx+30}" y2="${leafB}" stroke="#d62828" stroke-width="1.2"/>
+   <text x="${gx+34}" y="${(by+leafB)/2+4}" font-size="11" fill="#d62828" font-weight="600">a = ${a.toFixed(3)} m</text>
+   <text x="30" y="${yU-6}" font-size="11" fill="#1d4f91" font-weight="600">US ${hu.toFixed(3)} m</text>
+   <text x="410" y="${yD-6}" font-size="11" fill="#1d4f91" font-weight="600" text-anchor="end">DS ${hd.toFixed(3)} m</text>
+   <line x1="120" y1="${yU}" x2="120" y2="${Math.max(yD,yU)}" stroke="#7c3aed" stroke-width="1.2"/>
+   <line x1="112" y1="${yU}" x2="128" y2="${yU}" stroke="#7c3aed"/><line x1="112" y1="${yD}" x2="${gx-14}" y2="${yD}" stroke="#7c3aed" stroke-dasharray="3 3"/>
+   <text x="126" y="${(yU+yD)/2+4}" font-size="11" fill="#7c3aed" font-weight="600">ΔH ${(hu-hd).toFixed(3)} m</text>
+   <text x="${gx+60}" y="${arrowY+4}" font-size="11" fill="#1d2733">Q ${Math.max(Q,0).toFixed(4)} m³/s</text>`;
+  const stat=(k,v,u)=>`<div class="stat"><div class="k">${k}</div><div class="v">${v} <span class="u">${u}</span></div></div>`;
+  $('mStats').innerHTML=
+    stat('Up Stream WL',hu.toFixed(3),'m')+stat('Down Stream WL',hd.toFixed(3),'m')+stat('ΔH',(hu-hd).toFixed(3),'m')+
+    stat('Gate open',a.toFixed(3),'m')+stat('Q',Math.max(Q,0).toFixed(4),'m³/s')+
+    stat(qm?'Q ตั้ง (Q-Control)':'Gate open ตั้ง',qm?S.qset[i].toFixed(4):tgt.toFixed(3),qm?'m³/s':'m');
+  if(fAuto.checked&&document.activeElement!==fDH)fDH.value=Math.max(hu-hd,0).toFixed(3);
+}
+
+/* ---------------- picking ---------------- */
+const ray=new THREE.Raycaster(),ptr=new THREE.Vector2();let downXY=null;
+function pickGate(e){
+  const r=renderer.domElement.getBoundingClientRect();
+  ptr.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1); ray.setFromCamera(ptr,camera);
+  const hit=ray.intersectObjects(pickables,false)[0]; return hit?hit.object.userData.gateIndex:-1;
+}
+renderer.domElement.addEventListener('pointermove',e=>{hoverGate=pickGate(e);renderer.domElement.style.cursor=hoverGate>=0?'pointer':'';});
+renderer.domElement.addEventListener('pointerdown',e=>downXY=[e.clientX,e.clientY]);
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!downXY||Math.hypot(e.clientX-downXY[0],e.clientY-downXY[1])>5)return;
+  const g=pickGate(e); if(g>=0)openDetail(g);
+});
+
+/* =====================================================================
+   DIGITAL TWIN API  (window.iGateTwin)  และ WebSocket ?ws=ws://host:port
+   {"gates_mm":[60,80,100], "gates_q_lps":[null,3.0,null], "fto_pct":[0,30],
+    "pump":{"on":true,"pct":70}, "levels_mm":{"upper":200,"reach":[120,90,140],"lower":250},
+    "flows_lps":{"pump":4.2,"gate":[4.1,3.0,2.5],"fto":[0,0.8],"weir":2.4}}
+   ===================================================================== */
+const gIndex=id=>typeof id==='number'?id:CFG.gates.findIndex(g=>g.id===id);
+const reachDown=[gateS[1],gateS[2],LTOT];
+const api={
+  config:CFG,scene,model,THREE,setMode,openDetail,
+  setGate(id,mmv,immediate=S.mode==='live',source='API'){const i=gIndex(id);S.gmode[i]='open';S.target[i]=mmv/1000;if(immediate)S.open[i]=S.target[i];gateUI[i].refresh();logGateOpen(i,S.target[i],'Manual',source);},
+  setGateQ(id,lps,source='API'){const i=gIndex(id);S.gmode[i]='q';S.qset[i]=lps/1000;gateUI[i].refresh();logGateOpen(i,null,`Q-Control (${lps} L/s)`,source);},
+  openingForQ(id,lps){const i=gIndex(id);const {hu,hd}=heads(i);return solveOpening(hu,hd,lps/1000);},
+  setFTO(id,pct){const i=typeof id==='number'?id:CFG.ftos.findIndex(f=>f.id===id);S.fto[i]=pct/100;ftoUI[i].set(pct);},
+  setPump(on,pct){S.pumpOn=!!on;if(pct!=null){S.pumpSpeed=pct/100;pumpUI.set(pct);}setPumpBtn();},
+  setLevels({upper:u,reach,lower:l}={}){
+    if(u!=null)S.VU=upper.area*u/1000; if(l!=null)S.VL=lower.area*l/1000;
+    if(reach)reach.forEach((d,r)=>{if(d==null)return;const eta=bedAt(reachDown[r])+d/1000;S.V[r]=volOf(reaches[r],eta);S.eta[r]=eta;});
+  },
+  setFlows({pump,gate,fto,weir}={}){if(pump!=null)S.Q.pump=pump/1000;if(gate)S.Q.gate=gate.map(q=>q/1000);if(fto)S.Q.fto=fto.map(q=>q/1000);if(weir!=null)S.Q.weir=weir/1000;},
+  apply(m,src='WebSocket'){
+    m.gates_mm?.forEach((v,i)=>v!=null&&api.setGate(i,v,true,src));
+    m.gates_q_lps?.forEach((v,i)=>v!=null&&api.setGateQ(i,v,src));
+    m.fto_pct?.forEach((v,i)=>v!=null&&api.setFTO(i,v));
+    if(m.pump)api.setPump(m.pump.on,m.pump.pct);
+    if(m.levels_mm)api.setLevels(m.levels_mm);
+    if(m.flows_lps)api.setFlows(m.flows_lps);
+  },
+  getState(){return {mode:S.mode,gates:CFG.gates.map((g,i)=>{const {hu,hd}=heads(i);return {id:g.id,control:S.gmode[i],open_m:S.open[i],target_m:S.target[i],qset_m3s:S.qset[i],q_m3s:S.Q.gate[i],us_m:hu,ds_m:hd};}),
+    fto_pct:S.fto.map(v=>v*100),pump:{on:S.pumpOn,pct:S.pumpSpeed*100},
+    levels_mm:{upper:S.VU/upper.area*1000,reach:reachDown.map((s,r)=>dAt(r,s)*1000),lower:S.VL/lower.area*1000},
+    flows_lps:{pump:S.Q.pump*1000,gate:S.Q.gate.map(q=>q*1000),fto:S.Q.fto.map(q=>q*1000),weir:S.Q.weir*1000},warning:S.warn};},
+  logs:{levels:wlLog,gateOpen:goLog}
+};
+window.iGateTwin=api;
+const wsUrl=new URLSearchParams(location.search).get('ws');
+if(wsUrl){const connect=()=>{const ws=new WebSocket(wsUrl);ws.onopen=()=>setMode('live');
+  ws.onmessage=e=>{try{api.apply(JSON.parse(e.data));}catch(err){console.warn('bad msg',err);}};ws.onclose=()=>setTimeout(connect,3000);};connect();}
+
+/* ---------------- loop ---------------- */
+CFG.gates.forEach((g,i)=>logGateOpen(i,S.target[i],'Initial','System'));
+const clock=new THREE.Clock();let acc=0,uiT=0,logT=0;
+function loop(){
+  const dt=Math.min(clock.getDelta(),0.05),t=clock.elapsedTime;
+  if(S.mode==='sim'){acc+=dt*S.speed;let n=0;while(acc>=0.0025&&n<400){step(0.0025);acc-=0.0025;n++;}if(n>=400)acc=0;}
+  else for(let i=0;i<3;i++)S.open[i]=S.target[i];
+  syncVisuals(t);
+  if((uiT+=dt)>0.2){uiT=0;updateReadout();renderDetail();}
+  if((logT+=dt)>2){logT=0;logLevels();}
+  controls.update(); renderer.render(scene,camera); labelRenderer.render(scene,camera);
+  requestAnimationFrame(loop);
+}
+loop();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);labelRenderer.setSize(innerWidth,innerHeight);});
+</script>
+</body>
+</html>
